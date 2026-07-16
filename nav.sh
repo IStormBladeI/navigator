@@ -4,16 +4,30 @@
 # Date:		2026-07-16
 
 current_dir="$HOME"
-toggle_hidden=1
+toggle_hidden=0
+status_message=""
+color_reset=$(tput sgr0)
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+BLUE=$(tput setaf 4)
+status_color=$GREEN
+
+QUIT_COMMAND="q"
+BACK_COMMAND="b"
+TOGGLE_HIDDEN_COMMAND="h"
 
 display_directory() {
+	if [[ "$status_message" != "" ]]
+	then
+		echo "${status_color}$status_message${color_reset}"
+	fi
 	echo -e "Current Directory: $current_dir \n"
 	
-	if [[ $toggle_hidden -lt 0 ]]
+	if [[ $toggle_hidden -eq 1 ]]
 	then
-		directories=($(ls -aF "$current_dir"))
+		mapfile -t directories < <(ls -aF "$current_dir")
 	else
-		directories=($(ls -F "$current_dir"))
+		mapfile -t directories < <(ls -F "$current_dir")
 	fi
 
 	for i in "${!directories[@]}" 
@@ -25,50 +39,68 @@ display_directory() {
 
 get_input() {
 	read -p "Choose a directory: " input
+	status_message=""
+	status_color=$GREEN
 }
 
-handle_commands() {
-	if [[ "$input" == "q" ]]
+handle_input() {
+	if [[ "$input" == $QUIT_COMMAND ]]
 	then
+		clear
 		exit
 	fi
 
-	if [[ "$input" == "b" ]]
+	if [[ "$input" == "$BACK_COMMAND" ]]
 	then
 		if [[ "$current_dir" == "/" ]]
 		then
-			echo "cannot go out of root"
+			status_color=$RED
+			status_message="cannot go out of root"
 		else
 			current_dir=$(dirname "$current_dir")
+			status_message="Returned to $current_dir"
 		fi
 		return 1
 	fi
 
-	if [[ "$input" == "h" ]]
+	if [[ "$input" == "$TOGGLE_HIDDEN_COMMAND" ]]
 	then
-		(( toggle_hidden *= -1))
+		(( toggle_hidden ^= 1))
+		status_color=$BLUE
+		if [[ $toggle_hidden -eq 1 ]]
+		then
+			status_message="Hidden Files enabled"
+		else
+			status_message="Hidden Files disabled"
+		fi
+		return 1
 	fi
-}
 
-handle_dir() {
 	if [[ $input =~ ^[0-9]+$ ]]
 	then
 		index=$(($input - 1))
-		if [[ $index -ge 0 && $index -lt ${#directories[@]} ]]
-		then
+		if [[ $index -ge 0 && $index -lt ${#directories[@]} ]] then
+			status_message="entered ${directories[$index]}"
 			current_dir=$(make_dir "${directories[$index]}")
 		else
-			echo "invalid index"
+			status_color=$RED
+			status_message="invalid index"
 		fi
 		return 1
 	fi
 	
-	if [[ -d $(make_dir "input") ]]
+	if [[ -d $(make_dir "$input") ]]
 	then
+		status_message="entered $input"
 		current_dir=$(make_dir "$input")
 	else
-		echo "'$dir' is not a valid directory"
+		if [[ "$input" != "" ]]
+		then
+			status_color=$RED
+			status_message="'$input' is not a valid directory"
+		fi
 	fi
+	
 }
 
 make_dir() {
@@ -80,6 +112,5 @@ do
 	clear
 	display_directory
 	get_input
-	handle_commands || continue
-	handle_dir || continue
+	handle_input || continue
 done

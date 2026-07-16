@@ -4,21 +4,36 @@
 # Date:		2026-07-16
 
 current_dir="$HOME"
+toggle_hidden=1
 
-while true
-do
+display_directory() {
 	echo -e "Current Directory: $current_dir \n"
-
-	ls "$current_dir" -1
-
-	read -p "Choose a directory: " dir
 	
-	if [[ "$dir" == "q" ]]
+	if [[ $toggle_hidden -lt 0 ]]
+	then
+		directories=($(ls -aF "$current_dir"))
+	else
+		directories=($(ls -F "$current_dir"))
+	fi
+
+	for i in "${!directories[@]}" 
+	do
+		display_num=$(($i+1))
+		echo -e "$display_num. ${directories[$i]}"
+	done
+}
+
+get_input() {
+	read -p "Choose a directory: " input
+}
+
+handle_commands() {
+	if [[ "$input" == "q" ]]
 	then
 		exit
 	fi
 
-	if [[ "$dir" == "b" ]]
+	if [[ "$input" == "b" ]]
 	then
 		if [[ "$current_dir" == "/" ]]
 		then
@@ -26,13 +41,45 @@ do
 		else
 			current_dir=$(dirname "$current_dir")
 		fi
-		continue
+		return 1
 	fi
 
-	if [[ -d "$current_dir/$dir" ]]
+	if [[ "$input" == "h" ]]
 	then
-		current_dir="$current_dir/$dir"
+		(( toggle_hidden *= -1))
+	fi
+}
+
+handle_dir() {
+	if [[ $input =~ ^[0-9]+$ ]]
+	then
+		index=$(($input - 1))
+		if [[ $index -ge 0 && $index -lt ${#directories[@]} ]]
+		then
+			current_dir=$(make_dir "${directories[$index]}")
+		else
+			echo "invalid index"
+		fi
+		return 1
+	fi
+	
+	if [[ -d $(make_dir "input") ]]
+	then
+		current_dir=$(make_dir "$input")
 	else
 		echo "'$dir' is not a valid directory"
 	fi
+}
+
+make_dir() {
+	echo "$current_dir/$1"
+}
+
+while true
+do
+	clear
+	display_directory
+	get_input
+	handle_commands || continue
+	handle_dir || continue
 done

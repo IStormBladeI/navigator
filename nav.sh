@@ -13,10 +13,11 @@ BLUE=$(tput setaf 4)
 status_color=$GREEN
 
 QUIT_COMMAND="q"
-BACK_COMMAND="b"
+BACK_COMMAND=("b" "..")
 TOGGLE_HIDDEN_COMMAND="h"
 
 display_directory() {
+	check_home_dir
 	if [[ "$status_message" != "" ]]
 	then
 		echo "${status_color}$status_message${color_reset}"
@@ -50,15 +51,16 @@ handle_input() {
 		exit
 	fi
 
-	if [[ "$input" == "$BACK_COMMAND" ]]
+	if [[ "$input" == "${BACK_COMMAND[0]}" || "$input" == "${BACK_COMMAND[1]}" ]]
 	then
 		if [[ "$current_dir" == "/" ]]
 		then
 			status_color=$RED
 			status_message="cannot go out of root"
 		else
-			current_dir=$(dirname "$current_dir")
+			back_dir
 			status_message="Returned to $current_dir"
+			check_home_dir
 		fi
 		return 1
 	fi
@@ -80,8 +82,9 @@ handle_input() {
 	then
 		index=$(($input - 1))
 		if [[ $index -ge 0 && $index -lt ${#directories[@]} ]] then
-			status_message="entered ${directories[$index]}"
-			current_dir=$(make_dir "${directories[$index]}")
+			status_message="entered ${directories[$index]%?}"
+			current_dir=$(make_dir "${directories[$index]%?}")
+			check_home_dir
 		else
 			status_color=$RED
 			status_message="invalid index"
@@ -91,20 +94,47 @@ handle_input() {
 	
 	if [[ -d $(make_dir "$input") ]]
 	then
+		if [[ "$input" == "" ]]
+		then
+			status_message="no input > refresh"
+			check_home_dir
+			return 1
+		fi
 		status_message="entered $input"
 		current_dir=$(make_dir "$input")
+		check_home_dir
+		
 	else
-		if [[ "$input" != "" ]]
-		then
-			status_color=$RED
-			status_message="'$input' is not a valid directory"
-		fi
+		status_color=$RED
+		status_message="'$input' is not a valid directory"
 	fi
-	
 }
 
 make_dir() {
+	if [[ "$1" == "/"* ]]
+	then
+		echo "$input"
+		return 0
+	fi
+
+	if [[ "$1" == "~" ]]
+	then
+		echo "$HOME"
+		return 0
+	fi
+
 	echo "$current_dir/$1"
+}
+
+back_dir() {
+	current_dir=$(dirname "$current_dir")
+}
+
+check_home_dir() {
+	if [[ "$current_dir" == "$HOME" ]]
+	then
+		status_message="Welcome Home, would you like dinner, a bath or me"
+	fi
 }
 
 while true

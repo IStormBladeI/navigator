@@ -6,10 +6,12 @@
 current_dir="$HOME"
 toggle_hidden=0
 status_message=""
+home_message=""
 color_reset=$(tput sgr0)
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 BLUE=$(tput setaf 4)
+MAGENTA=$(tput setaf 5)
 status_color=$GREEN
 
 QUIT_COMMAND="q"
@@ -18,10 +20,16 @@ TOGGLE_HIDDEN_COMMAND="h"
 
 display_directory() {
 	check_home_dir
+	if [[ "$home_message" != "" ]]
+	then
+		echo "${MAGENTA}$home_message${color_reset}"
+	fi
+
 	if [[ "$status_message" != "" ]]
 	then
 		echo "${status_color}$status_message${color_reset}"
 	fi
+
 	echo -e "Current Directory: $current_dir \n"
 	
 	if [[ $toggle_hidden -eq 1 ]]
@@ -41,6 +49,7 @@ display_directory() {
 get_input() {
 	read -p "Choose a directory: " input
 	status_message=""
+	home_message=""
 	status_color=$GREEN
 }
 
@@ -60,7 +69,6 @@ handle_input() {
 		else
 			back_dir
 			status_message="Returned to $current_dir"
-			check_home_dir
 		fi
 		return 1
 	fi
@@ -81,10 +89,16 @@ handle_input() {
 	if [[ $input =~ ^[0-9]+$ ]]
 	then
 		index=$(($input - 1))
-		if [[ $index -ge 0 && $index -lt ${#directories[@]} ]] then
-			status_message="entered ${directories[$index]%?}"
-			current_dir=$(make_dir "${directories[$index]%?}")
-			check_home_dir
+		if [[ $index -ge 0 && $index -lt ${#directories[@]} ]] 
+		then
+			if [[ -d $(make_dir "${directories[$index]}") ]]
+			then
+				status_message="entered ${directories[$index]%?}"
+				current_dir=$(make_dir "${directories[$index]%?}")
+			else
+				status_message="cannot enter file"
+				status_color=$RED
+			fi
 		else
 			status_color=$RED
 			status_message="invalid index"
@@ -97,13 +111,10 @@ handle_input() {
 		if [[ "$input" == "" ]]
 		then
 			status_message="no input > refresh"
-			check_home_dir
 			return 1
 		fi
 		status_message="entered $input"
 		current_dir=$(make_dir "$input")
-		check_home_dir
-		
 	else
 		status_color=$RED
 		status_message="'$input' is not a valid directory"
@@ -133,7 +144,8 @@ back_dir() {
 check_home_dir() {
 	if [[ "$current_dir" == "$HOME" ]]
 	then
-		status_message="Welcome Home, would you like dinner, a bath or me"
+		home_message="Welcome Home, would you like dinner, a bath or me"
+#		status_color=$MAGENTA
 	fi
 }
 

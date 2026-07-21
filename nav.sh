@@ -16,10 +16,11 @@ BLUE=$(tput setaf 4)
 MAGENTA=$(tput setaf 5)
 status_color=$GREEN
 
-QUIT_COMMAND="q"
-BACK_COMMAND=("b" "..")
-UP_COMMAND=("w" "$'\e[A'")
-DOWN_COMMAND=("s" "$'\e[B'")
+QUIT_KEYS="q"
+BACK_KEYS=("b" $'\e[D' "a")
+ENTER_KEYS=("" $'\e[C' "d")
+UP_KEYS=("w" $'\e[A')
+DOWN_KEYS=("s" $'\e[B')
 TOGGLE_HIDDEN_COMMAND="h"
 
 display_directory() {
@@ -72,13 +73,13 @@ get_input() {
 }
 
 handle_input() {
-	if [[ "$input" == $QUIT_COMMAND ]]
+	if check_input "$QUIT_KEYS"
 	then
 		clear
 		exit
 	fi
 
-	if [[ "$input" == "${BACK_COMMAND[0]}" || "$input" == "${BACK_COMMAND[1]}" ]]
+	if check_input "${BACK_KEYS[@]}"
 	then
 		if [[ "$current_dir" == "/" ]]
 		then
@@ -88,10 +89,11 @@ handle_input() {
 			back_dir
 			status_message="Returned to $current_dir"
 		fi
+		reset_selected_index
 		return 1
 	fi
 
-	if [[ "$input" == "$TOGGLE_HIDDEN_COMMAND" ]]
+	if check_input "$TOGGLE_HIDDEN_COMMAND"
 	then
 		(( toggle_hidden ^= 1))
 		status_color=$BLUE
@@ -101,17 +103,26 @@ handle_input() {
 		else
 			status_message="Hidden Files disabled"
 		fi
+		reset_selected_index
 		return 1
 	fi
 
-	if [[ "$input" == "${UP_COMMAND[0]}" || "$input" == "$(eval echo "${UP_COMMAND[1]}")" ]]
+	if check_input "${UP_KEYS[@]}"
 	then
 		((selected_index--))
 		check_selected_index_overflow
 		return 1
 	fi
 
-	if [[ "$input" == "${DOWN_COMMAND[0]}" || "$input" == "$(eval echo "${DOWN_COMMAND[1]}")" ]]
+	if check_input "${ENTER_KEYS[@]}"
+	then
+		status_message="entered ${directories[$selected_index]%?}"
+		current_dir=$(make_dir "${directories[$selected_index]%?}")
+		reset_selected_index
+		return 1
+	fi
+
+	if check_input "${DOWN_KEYS[@]}" 
 	then
 		((selected_index++))
 		check_selected_index_overflow
@@ -151,6 +162,21 @@ handle_input() {
 		status_color=$RED
 		status_message="'$input' is not a valid directory"
 	fi
+}
+
+reset_selected_index() {
+	selected_index=0
+}
+
+check_input() {
+	for key in "$@"
+	do
+		if [[ "$input" == "$key" ]]
+		then
+			return 0 #found
+		fi
+	done
+	return 1 #not found
 }
 
 check_selected_index_overflow() {
